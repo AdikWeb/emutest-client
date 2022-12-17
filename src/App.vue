@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <canvas width="640" height="480" ref="canvas"/>
-    <button class="connect" @click="connect">Connect</button>
+    <button class="connect" :disabled="connected" @click="connect">Connect</button>
   </div>
 </template>
 
@@ -14,7 +14,8 @@ export default {
     return {
       socket: null,
       context: null,
-      canvas: null
+      canvas: null,
+      connected: false
     }
   },
   mounted() {
@@ -32,7 +33,9 @@ export default {
     },
 
     connect(){
+      this.connected = true;
 
+      // this.socket = io("ws://51.250.77.85:3000")
       this.socket = io("ws://localhost:3000");
       this.socket.on('connect', ()=>{
         console.log('connected');
@@ -64,6 +67,10 @@ canvas{
   color: #fff;
   border: none;
   margin: 0 auto;
+}
+.connect:disabled {
+  background: #ccc;
+  color: #000;
 }
 
 </style>
