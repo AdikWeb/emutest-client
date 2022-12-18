@@ -71,8 +71,8 @@ export default {
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)({sampleRate: 44100});
       this.audioBuffer = this.audioContext.createBuffer(2, 736, 44100);
 
-      // this.socket = io("ws://51.250.77.85:3000")
-      this.socket = io("ws://localhost:3000");
+      this.socket = io("http://51.250.77.85:3000")
+      // this.socket = io("ws://localhost:3000");
 
       this.socket.on('connect', () => {
         console.log('connected');
