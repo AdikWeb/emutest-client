@@ -15,7 +15,10 @@ export default {
       socket: null,
       context: null,
       canvas: null,
-      connected: false
+      connected: false,
+      soundShedTime: 0,
+      audioContext: null,
+      audioBuffer: null
     }
   },
   mounted() {
@@ -31,19 +34,38 @@ export default {
       };
       image.src = data;
     },
-
     connect(){
       this.connected = true;
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)({sampleRate: 44100});
+      this.audioBuffer = this.audioContext.createBuffer(2, 736, 44100);
 
       // this.socket = io("ws://51.250.77.85:3000")
       this.socket = io("ws://localhost:3000");
       this.socket.on('connect', ()=>{
         console.log('connected');
       });
-      this.socket.on('image', (data)=>{
-        this.drawImage(data);
+      this.socket.on('frame', (data)=>{
+        this.drawImage(data.image);
+        this.audioBuffer.copyToChannel(new Float32Array(data.audio_l), 0);
+        this.audioBuffer.copyToChannel(new Float32Array(data.audio_r), 1);
+        this.sound();
       });
-    }
+    },
+    sound() {
+      let source = this.audioContext.createBufferSource();
+      const gainNode = this.audioContext.createGain();
+      gainNode.gain.value = 0.05;
+      source.buffer = this.audioBuffer;
+      source.connect(gainNode).connect(this.audioContext.destination);
+      let currentSoundTime = this.audioContext.currentTime;
+      if(currentSoundTime < this.soundShedTime) {
+          source.start(this.soundShedTime);
+          this.soundShedTime += this.audioBuffer.duration;
+      } else {
+          source.start(currentSoundTime);
+          this.soundShedTime = currentSoundTime + this.audioBuffer.duration + 736 * 8 / 44100;
+      }
+    },
   }
 }
 </script>
