@@ -1,16 +1,16 @@
 <template>
   <div id="app">
     <canvas :width="widthScreen" :height="heightScreen" ref="canvas"/>
-    <button class="connect" :disabled="connected" @click="connect">Connect</button>
+    <button v-if="nickname" class="connect" :disabled="connected" @click="connect">Connect</button>
     <input type="range" min="0" max="10" step="0.1" v-model="soundVolume"/>
+    <label class="flex">
+      <span>Nickname:</span>
+      <input type="text" v-model="nickname">
+    </label>
     <div class="flex">
-      <button @click="testGamepad(i)" v-for="i in 30" :key="i">{{i}}</button>
-    </div>
-    <div class="flex">
-      <button @click="testGamepad(30+i)" v-for="i in 30" :key="-i">{{30+i}}</button>
-    </div>
-    <div class="flex">
-      <button @click="testGamepad(i)" v-for="i in Object.values(CONTROLS)" :key="-i">{{i}}</button>
+      <select v-model="gamepadIndex">
+        <option v-for="({id, index}, key) in getGamepadsList" :key="key" :value="index">{{ id }}</option>
+      </select>
     </div>
   </div>
 </template>
@@ -23,8 +23,8 @@ export default {
   name: 'App',
   data() {
     return {
-      widthScreen: 1280,
-      heightScreen: 1024,
+      widthScreen: 860,
+      heightScreen: 640,
       socket: null,
       context: null,
       canvas: null,
@@ -33,27 +33,26 @@ export default {
       audioContext: null,
       audioBuffer: null,
       soundVolume: 0,
-      gamepadIndex: 1,
-      CONTROLS: {
-        INPUT_MODE: 0x0800,
-        INPUT_X: 0x0400,
-        INPUT_Y: 0x0200,
-        INPUT_Z: 0x0100,
-        INPUT_START: 0x0080,
-        INPUT_A: 0x0040,
-        INPUT_C: 0x0020,
-        INPUT_B: 0x0010,
-        INPUT_RIGHT: 0x0008,
-        INPUT_LEFT: 0x0004,
-        INPUT_DOWN: 0x0002,
-        INPUT_UP: 0x0001
-      }
+      gamepads: {},
+      gamepad: null,
+      gamepadIndex: 2,
+      nickname: Date.now(),
+    }
+  },
+  computed: {
+    getGamepadsList() {
+      return this.gamepads;
+    }
+  },
+  watch: {
+    gamepadIndex() {
+      this.initGamepad()
     }
   },
   mounted() {
     this.canvas = this.$refs.canvas;
     this.context = this.canvas.getContext('2d');
-    ControllerClass.init();
+
     document.addEventListener('keydown', (e) => {
       ControllerClass.keyboard(e, ({value, index}) => {
         this.socket.emit('button', value, index)
@@ -66,8 +65,16 @@ export default {
       })
     })
 
+    window.addEventListener("gamepadconnected", () => {
+      this.gamepads = navigator.getGamepads().filter((n) => n).map(({id, index}) => ({id, index}))
+      this.initGamepad();
+    });
   },
   methods: {
+    initGamepad() {
+      this.gamepad = navigator.getGamepads()[this.gamepadIndex]
+      ControllerClass.init();
+    },
     drawImage(data) {
       let image = new Image();
       image.onload = () => {
@@ -78,16 +85,12 @@ export default {
     },
 
     gamepadScan() {
-      let gamepads = navigator.getGamepads();
-      if (gamepads.length && gamepads[this.gamepadIndex]) {
-        let gamepad = gamepads[this.gamepadIndex];
-        let duplicateCode = [];
-        gamepad.buttons.forEach((button, index) => {
-          ControllerClass.gamepad(index, button.value, (indexCode, value) => {
-            if (!duplicateCode.includes(indexCode)) this.socket.emit('button', button.value * value, indexCode)
-            if (button.value && value === -1) duplicateCode.push(indexCode)
-          })
+      if (this.gamepad) {
+        let pressedButtons = []
+        navigator.getGamepads()[this.gamepadIndex].buttons.forEach((button, index) => {
+          ControllerClass.gamepad(index, button.value, (indexCode) => button.value && pressedButtons.push(indexCode))
         });
+        this.socket.emit('button', pressedButtons.reduce((a, b) => a + b, 0))
       }
     },
 
@@ -105,14 +108,6 @@ export default {
 
       this.socket.on('frame', (data) => {
         this.gamepadScan()
-
-
-        // if (width != lastWidth || height != lastHeight) {
-          // lastWidth = width;
-          // lastHeight = height;
-          // SetCanvasSize(lastWidth, lastHeight);
-        // }
-
         this.drawImage(data.image);
         this.audioBuffer.copyToChannel(new Float32Array(data.audio_l), 0);
         this.audioBuffer.copyToChannel(new Float32Array(data.audio_r), 1);
@@ -134,13 +129,6 @@ export default {
         source.start(currentSoundTime);
         this.soundShedTime = currentSoundTime + this.audioBuffer.duration + 736 * 8 / 44100;
       }
-    },
-
-    testGamepad(index){
-      this.socket.emit('button', index, index)
-      setTimeout(()=>{
-        this.socket.emit('button', 0, index)
-      }, 200)
     }
   }
 }

@@ -1,15 +1,31 @@
+const CONTROLS = {
+    INPUT_MODE: 0x0800,
+    INPUT_X: 0x0400,
+    INPUT_Y: 0x0200,
+    INPUT_Z: 0x0100,
+    INPUT_START: 0x0080,
+    INPUT_A: 0x0040,
+    INPUT_C: 0x0020,
+    INPUT_B: 0x0010,
+    INPUT_RIGHT: 0x0008,
+    INPUT_LEFT: 0x0004,
+    INPUT_DOWN: 0x0002,
+    INPUT_UP: 0x0001
+}
+
+
 const ButtonsMap = new Map([
-    ['start', {index: 15, value: 1}],
-    ['a', {index: 10, value: 1}],
-    ['b', {index: 11, value: 1}],
-    ['c', {index: 9, value: 1}],
-    ['x', {index: 8, value: 1}],
-    ['y', {index: 12, value: 1}],
-    ['z', {index: 13, value: 1}],
-    ['up', {index: 7, value: -1}],
-    ['down', {index: 7, value: 1}],
-    ['left', {index: 6, value: -1}],
-    ['right', {index: 6, value: 1}],
+    ['start', CONTROLS.INPUT_START],
+    ['a', CONTROLS.INPUT_A],
+    ['b', CONTROLS.INPUT_B],
+    ['c', CONTROLS.INPUT_C],
+    ['x', CONTROLS.INPUT_X],
+    ['y', CONTROLS.INPUT_Y],
+    ['z', CONTROLS.INPUT_Z],
+    ['up', CONTROLS.INPUT_UP],
+    ['down', CONTROLS.INPUT_DOWN],
+    ['left', CONTROLS.INPUT_LEFT],
+    ['right', CONTROLS.INPUT_RIGHT],
 ])
 
 const KeyboardCodeMapDefault = new Map([
@@ -55,14 +71,14 @@ export class ControllerClass {
 
     static gamepad(index, state, callback) {
         if (this.keyMap.has(index)) {
-            const {index: indexCode, value} = ButtonsMap.get(this.keyMap.get(index)?.index);
-            callback(indexCode, value)
+            const inputCode = ButtonsMap.get(this.keyMap.get(index)?.index);
+            callback(inputCode)
         }
     }
 
     static keyboard(e, callback) {
         const {keyCode, type} = e
-        if (this.keyMap.has(keyCode)) {
+        if (this.keyMap&&this.keyMap.has(keyCode)) {
             if (type === 'keydown') {
                 this.keyMap.get(keyCode).state = true;
                 callback(ButtonsMap.get(this.keyMap.get(keyCode).index), 'keydown')
