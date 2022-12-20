@@ -58,14 +58,15 @@ const GamepadCodeMapDefault = new Map([
 
 export class ControllerClass {
     keyMap = null;
-    static useController = true
+    static useController = false
 
-    static init() {
+    static init(useController = false) {
+        this.useController = useController;
         //TODO Create localStorage keymap
         if (!this.keyMap) this.keyMap = new Map();
         //if local storage = empty - use default map
         (this.useController ? GamepadCodeMapDefault : KeyboardCodeMapDefault).forEach((index, code) => {
-            this.keyMap.set(code, {index, state: false})
+            this.keyMap.set(code, {index})
         })
     }
 
@@ -77,15 +78,9 @@ export class ControllerClass {
     }
 
     static keyboard(e, callback) {
-        const {keyCode, type} = e
-        if (this.keyMap&&this.keyMap.has(keyCode)) {
-            if (type === 'keydown') {
-                this.keyMap.get(keyCode).state = true;
-                callback(ButtonsMap.get(this.keyMap.get(keyCode).index), 'keydown')
-            } else if (type === 'keyup') {
-                this.keyMap.get(keyCode).state = false;
-                callback(ButtonsMap.get(this.keyMap.get(keyCode).index), 'keyup')
-            }
+        const {keyCode} = e
+        if (this.keyMap?.has(keyCode)) {
+            callback(ButtonsMap.get(this.keyMap.get(keyCode)?.index))
         }
     }
 }

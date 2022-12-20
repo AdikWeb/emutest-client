@@ -37,6 +37,7 @@ export default {
       gamepad: null,
       gamepadIndex: 2,
       nickname: Date.now(),
+      pressedButtons: [],
     }
   },
   computed: {
@@ -54,14 +55,17 @@ export default {
     this.context = this.canvas.getContext('2d');
 
     document.addEventListener('keydown', (e) => {
-      ControllerClass.keyboard(e, ({value, index}) => {
-        this.socket.emit('button', value, index)
+      ControllerClass.keyboard(e, (value) => {
+        this.pressedButtons.push(value);
+        this.socket.emit('button', this.pressedButtons.reduce((a, b) => a + b, 0));
       })
     })
 
     document.addEventListener('keyup', (e) => {
-      ControllerClass.keyboard(e, ({index}) => {
-        this.socket.emit('button', 0, index)
+      //TODO: Добавить отпускание кнопок и считывание состояний кнопок для удаления из массива.
+      this.pressedButtons = [];
+      ControllerClass.keyboard(e, () => {
+        this.socket.emit('button', this.pressedButtons.reduce((a, b) => a + b, 0));
       })
     })
 
@@ -73,7 +77,10 @@ export default {
   methods: {
     initGamepad() {
       this.gamepad = navigator.getGamepads()[this.gamepadIndex]
-      ControllerClass.init();
+      ControllerClass.init(true);
+    },
+    initKeyboard() {
+      ControllerClass.init(false);
     },
     drawImage(data) {
       let image = new Image();
@@ -86,13 +93,13 @@ export default {
 
     gamepadScan() {
       if (this.gamepad) {
-        let pressedButtons = []
         navigator.getGamepads()[this.gamepadIndex].buttons.forEach((button, index) => {
-          ControllerClass.gamepad(index, button.value, (indexCode) => button.value && pressedButtons.push(indexCode))
+          ControllerClass.gamepad(index, button.value, (indexCode) => button.value && this.pressedButtons.push(indexCode))
         });
-        this.socket.emit('button', pressedButtons.reduce((a, b) => a + b, 0))
+        this.socket.emit('button', this.pressedButtons.reduce((a, b) => a + b, 0))
       }
     },
+
 
     connect() {
       this.connected = true;
@@ -100,7 +107,9 @@ export default {
       this.audioBuffer = this.audioContext.createBuffer(2, 736, 44100);
 
       // this.socket = io("http://51.250.77.85:3000")
-      this.socket = io("ws://localhost:3000");
+      this.socket = io("ws://localhost:3000", {
+        withCredentials: true
+      });
 
       this.socket.on('connect', () => {
         console.log('connected');
@@ -113,6 +122,8 @@ export default {
         this.audioBuffer.copyToChannel(new Float32Array(data.audio_r), 1);
         this.sound();
       });
+
+      this.initKeyboard();
     },
 
     sound() {
