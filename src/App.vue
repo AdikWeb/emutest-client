@@ -1,11 +1,15 @@
 <template>
   <div id="app">
-    <canvas :width="widthScreen" :height="heightScreen" ref="canvas"/>
+    <canvas tabindex="1" :width="widthScreen" :height="heightScreen" ref="canvas"/>
     <button v-if="nickname" class="connect" :disabled="connected" @click="connect">Connect</button>
     <input type="range" min="0" max="10" step="0.1" v-model="soundVolume"/>
     <label class="flex">
       <span>Nickname:</span>
       <input type="text" v-model="nickname">
+    </label>
+    <label class="flex">
+      <span>useGamepad:</span>
+      <input type="checkbox" v-model="useGamepad">
     </label>
     <div class="flex">
       <select v-model="gamepadIndex">
@@ -38,6 +42,8 @@ export default {
       gamepadIndex: 2,
       nickname: Date.now(),
       pressedButtons: [],
+      useGamepad: false,
+      playerController: new ControllerClass()
     }
   },
   computed: {
@@ -48,40 +54,36 @@ export default {
   watch: {
     gamepadIndex() {
       this.initGamepad()
+    },
+    useGamepad(val) {
+      this.playerController.useGamepad = val
+      val && this.initGamepad();
     }
   },
   mounted() {
     this.canvas = this.$refs.canvas;
     this.context = this.canvas.getContext('2d');
-
-    document.addEventListener('keydown', (e) => {
-      ControllerClass.keyboard(e, (value) => {
-        this.pressedButtons.push(value);
-        this.socket.emit('button', this.pressedButtons.reduce((a, b) => a + b, 0));
-      })
+    this.canvas.addEventListener('keydown', (e) => {
+      e.preventDefault()
+      this.playerController.keyboard(e)
     })
 
-    document.addEventListener('keyup', (e) => {
-      //TODO: Добавить отпускание кнопок и считывание состояний кнопок для удаления из массива.
-      this.pressedButtons = [];
-      ControllerClass.keyboard(e, () => {
-        this.socket.emit('button', this.pressedButtons.reduce((a, b) => a + b, 0));
-      })
+    this.canvas.addEventListener('keyup', (e) => {
+      e.preventDefault()
+      this.playerController.keyboard(e)
     })
 
     window.addEventListener("gamepadconnected", () => {
       this.gamepads = navigator.getGamepads().filter((n) => n).map(({id, index}) => ({id, index}))
       this.initGamepad();
     });
+
   },
   methods: {
     initGamepad() {
       this.gamepad = navigator.getGamepads()[this.gamepadIndex]
-      ControllerClass.init(true);
     },
-    initKeyboard() {
-      ControllerClass.init(false);
-    },
+
     drawImage(data) {
       let image = new Image();
       image.onload = () => {
@@ -92,14 +94,10 @@ export default {
     },
 
     gamepadScan() {
-      if (this.gamepad) {
-        navigator.getGamepads()[this.gamepadIndex].buttons.forEach((button, index) => {
-          ControllerClass.gamepad(index, button.value, (indexCode) => button.value && this.pressedButtons.push(indexCode))
-        });
-        this.socket.emit('button', this.pressedButtons.reduce((a, b) => a + b, 0))
-      }
+      if (this.useGamepad&&this.gamepad)
+        this.playerController.pressedButtons = navigator.getGamepads()[this.gamepadIndex].buttons
+            .reduce((acc, {value}, index) => (acc |= this.playerController.getInputCode(index) * value, acc), 0x0000)
     },
-
 
     connect() {
       this.connected = true;
@@ -117,13 +115,12 @@ export default {
 
       this.socket.on('frame', (data) => {
         this.gamepadScan()
+        this.socket.emit('button', this.playerController.pressedButtons)
         this.drawImage(data.image);
         this.audioBuffer.copyToChannel(new Float32Array(data.audio_l), 0);
         this.audioBuffer.copyToChannel(new Float32Array(data.audio_r), 1);
         this.sound();
       });
-
-      this.initKeyboard();
     },
 
     sound() {

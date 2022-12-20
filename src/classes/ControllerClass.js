@@ -1,4 +1,4 @@
-const CONTROLS = {
+export const CONTROLS = {
     INPUT_MODE: 0x0800,
     INPUT_X: 0x0400,
     INPUT_Y: 0x0200,
@@ -13,74 +13,83 @@ const CONTROLS = {
     INPUT_UP: 0x0001
 }
 
-
-const ButtonsMap = new Map([
-    ['start', CONTROLS.INPUT_START],
-    ['a', CONTROLS.INPUT_A],
-    ['b', CONTROLS.INPUT_B],
-    ['c', CONTROLS.INPUT_C],
-    ['x', CONTROLS.INPUT_X],
-    ['y', CONTROLS.INPUT_Y],
-    ['z', CONTROLS.INPUT_Z],
-    ['up', CONTROLS.INPUT_UP],
-    ['down', CONTROLS.INPUT_DOWN],
-    ['left', CONTROLS.INPUT_LEFT],
-    ['right', CONTROLS.INPUT_RIGHT],
-])
-
-const KeyboardCodeMapDefault = new Map([
-    [32, 'start'],
-    [87, 'up'],
-    [83, 'down'],
-    [65, 'left'],
-    [68, 'right'],
-    [75, 'a'],
-    [76, 'b'],
-    [186, 'c'],
-    [73, 'x'],
-    [79, 'y'],
-    [80, 'z'],
-])
-
-const GamepadCodeMapDefault = new Map([
-    [9, 'start'],
-    [12, 'up'],
-    [13, 'down'],
-    [14, 'left'],
-    [15, 'right'],
-    [0, 'a'],
-    [4, 'b'],
-    [1, 'c'],
-    [2, 'x'],
-    [5, 'y'],
-    [3, 'z'],
-])
-
 export class ControllerClass {
-    keyMap = null;
-    static useController = false
+    pressedButtons = 0x0000;
+    useGamepad = false;
+    gamepadButtonsMap = new Map([
+        [9, 'start'],
+        [12, 'up'],
+        [13, 'down'],
+        [14, 'left'],
+        [15, 'right'],
+        [0, 'a'],
+        [4, 'b'],
+        [1, 'c'],
+        [2, 'x'],
+        [5, 'y'],
+        [3, 'z'],
+    ])
 
-    static init(useController = false) {
-        this.useController = useController;
-        //TODO Create localStorage keymap
-        if (!this.keyMap) this.keyMap = new Map();
-        //if local storage = empty - use default map
-        (this.useController ? GamepadCodeMapDefault : KeyboardCodeMapDefault).forEach((index, code) => {
-            this.keyMap.set(code, {index})
-        })
+    keyboardButtonsMap = new Map([
+        [32, 'start'],
+        [87, 'up'],
+        [83, 'down'],
+        [65, 'left'],
+        [68, 'right'],
+        [75, 'a'],
+        [76, 'b'],
+        [186, 'c'],
+        [73, 'x'],
+        [79, 'y'],
+        [80, 'z'],
+    ])
+
+    keyMap = {
+        'start': CONTROLS.INPUT_START,
+        'a': CONTROLS.INPUT_A,
+        'b': CONTROLS.INPUT_B,
+        'c': CONTROLS.INPUT_C,
+        'x': CONTROLS.INPUT_X,
+        'y': CONTROLS.INPUT_Y,
+        'z': CONTROLS.INPUT_Z,
+        'up': CONTROLS.INPUT_UP,
+        'down': CONTROLS.INPUT_DOWN,
+        'left': CONTROLS.INPUT_LEFT,
+        'right': CONTROLS.INPUT_RIGHT,
     }
 
-    static gamepad(index, state, callback) {
-        if (this.keyMap.has(index)) {
-            const inputCode = ButtonsMap.get(this.keyMap.get(index)?.index);
-            callback(inputCode)
-        }
+    constructor(useController = false) {
+        this.useGamepad = useController;
     }
 
-    static keyboard(e, callback) {
+    get pressedButtons() {
+        return this.pressedButtons;
+    }
+
+    set pressedButtons(value) {
+        this.pressedButtons = value;
+    }
+
+    get controllerTypeName() {
+        return this.useGamepad ? 'GAMEPAD' : 'KEYBOARD'
+    }
+
+    get controller() {
+        return this.useGamepad ? this.gamepadButtonsMap : this.keyboardButtonsMap
+    }
+
+    set useGamepad(val) {
+        this.useGamepad = val;
+    }
+
+    getInputCode(index){
+        return this.keyMap[this.controller.get(index)]
+    }
+
+    keyboard(e) {
         const {keyCode} = e
-        if (this.keyMap?.has(keyCode)) {
-            callback(ButtonsMap.get(this.keyMap.get(keyCode)?.index))
-        }
+        if (!this.useGamepad&&!this.controller.has(keyCode)) return;
+        const input = this.getInputCode(keyCode);
+        e.type === 'keydown' ? this.pressedButtons |= input : this.pressedButtons ^= input
     }
 }
