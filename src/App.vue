@@ -2,7 +2,7 @@
   <div id="app">
     <canvas tabindex="1" :width="widthScreen" :height="heightScreen" ref="canvas"/>
     <button v-if="nickname" class="connect" :disabled="connected" @click="connect">Connect</button>
-    <input type="range" min="0" max="10" step="0.1" v-model="soundVolume"/>
+    <input type="range" min="0" max="10" step="0.1" v-model="soundVolume" :defaultValue="soundVolume"/>
     <label class="flex">
       <span>Nickname:</span>
       <input type="text" v-model="nickname">
@@ -36,14 +36,15 @@ export default {
       soundShedTime: 0,
       audioContext: null,
       audioBuffer: null,
-      soundVolume: 0,
+      soundVolume: 0.1,
       gamepads: {},
       gamepad: null,
       gamepadIndex: 2,
       nickname: Date.now(),
       pressedButtons: [],
       useGamepad: false,
-      playerController: new ControllerClass()
+      playerController: new ControllerClass(),
+      // testAudio: [],
     }
   },
   computed: {
@@ -101,10 +102,12 @@ export default {
 
     connect() {
       this.connected = true;
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)({sampleRate: 44100});
-      this.audioBuffer = this.audioContext.createBuffer(2, 736, 44100);
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)({numberOfChannels: 2, sampleRate: 48000});
+      this.audioBuffer = this.audioContext.createBuffer(2, 736, 48000);
 
-      // this.socket = io("http://51.250.77.85:3000")
+      // this.socket = io("http://51.250.77.85:3000", {
+      //   withCredentials: true
+      // });
       this.socket = io("ws://localhost:3000", {
         withCredentials: true
       });
@@ -129,14 +132,7 @@ export default {
       gainNode.gain.value = this.soundVolume;
       source.buffer = this.audioBuffer;
       source.connect(gainNode).connect(this.audioContext.destination);
-      let currentSoundTime = this.audioContext.currentTime;
-      if (currentSoundTime < this.soundShedTime) {
-        source.start(this.soundShedTime);
-        this.soundShedTime += this.audioBuffer.duration;
-      } else {
-        source.start(currentSoundTime);
-        this.soundShedTime = currentSoundTime + this.audioBuffer.duration + 736 * 8 / 44100;
-      }
+      source.start()
     }
   }
 }
