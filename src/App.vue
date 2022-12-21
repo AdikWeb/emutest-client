@@ -43,7 +43,8 @@ export default {
       nickname: Date.now(),
       pressedButtons: [],
       useGamepad: false,
-      playerController: new ControllerClass()
+      playerController: new ControllerClass(),
+      canvasImageData: null
     }
   },
   computed: {
@@ -63,6 +64,7 @@ export default {
   mounted() {
     this.canvas = this.$refs.canvas;
     this.context = this.canvas.getContext('2d');
+    this.canvasImageData = this.context.createImageData(320, 240);
     this.canvas.addEventListener('keydown', (e) => {
       e.preventDefault()
       this.playerController.keyboard(e)
@@ -84,14 +86,14 @@ export default {
       this.gamepad = navigator.getGamepads()[this.gamepadIndex]
     },
 
-    drawImage(data) {
-      let image = new Image();
-      image.onload = () => {
-        this.context.clearRect(0, 0, this.widthScreen, this.heightScreen)
-        this.context.drawImage(image, 0, 0, this.widthScreen, this.heightScreen);
-      };
-      image.src = data;
-    },
+    // drawImage(data) {
+    //   let image = new Image();
+    //   image.onload = () => {
+    //     this.context.clearRect(0, 0, this.widthScreen, this.heightScreen)
+    //     this.context.drawImage(image, 0, 0, this.widthScreen, this.heightScreen);
+    //   };
+    //   image.src = data;
+    // },
 
     gamepadScan() {
       if (this.useGamepad&&this.gamepad)
@@ -104,7 +106,7 @@ export default {
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)({sampleRate: 44100});
       this.audioBuffer = this.audioContext.createBuffer(2, 736, 44100);
 
-      // this.socket = io("http://51.250.77.85:3000")
+      // this.socket = io("http://158.160.55.52:3000", {
       this.socket = io("ws://localhost:3000", {
         withCredentials: true
       });
@@ -116,7 +118,12 @@ export default {
       this.socket.on('frame', (data) => {
         this.gamepadScan()
         this.socket.emit('button', this.playerController.pressedButtons)
-        this.drawImage(data.image);
+
+        if(data.image){
+          this.canvasImageData.data.set(new Uint8ClampedArray(data.image));
+          this.context.putImageData(this.canvasImageData, 0, 0);
+        }
+
         this.audioBuffer.copyToChannel(new Float32Array(data.audio_l), 0);
         this.audioBuffer.copyToChannel(new Float32Array(data.audio_r), 1);
         this.sound();
